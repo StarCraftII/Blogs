@@ -11,7 +11,8 @@ the blogs about knowledge
 
 > 这里是引用
 
-**这里是粗体 *这里是斜体
+**这里是粗体 
+*这里是斜体
 
 ***
 
@@ -23,4 +24,4 @@ the blogs about knowledge
 
 [Baidu]（www.baidu.com）
 
-![Mou icon](www.mouapp.com/Mou_128.png)
+![Mou icon](http.mouapp.com/Mou_128.png)
