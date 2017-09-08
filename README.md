@@ -21,7 +21,7 @@ the blogs about knowledge
        ByteArrayOutputStream baos = new ByteArrayOutputStream();    
        bm.compress(Bitmap.CompressFormat.PNG, 100, baos);    
        return baos.toByteArray();
-}````
+}```
 
 [Baidu]（http://www.baidu.com）
 
