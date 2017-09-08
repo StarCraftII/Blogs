@@ -18,9 +18,9 @@ the blogs about knowledge
 ***
 
  ` public static byte[] bitmap2Bytes(Bitmap bm) {     
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();    
-    bm.compress(Bitmap.CompressFormat.PNG, 100, baos);    
-    return baos.toByteArray();
+     ByteArrayOutputStream baos = new ByteArrayOutputStream();    
+     bm.compress(Bitmap.CompressFormat.PNG, 100, baos);    
+     return baos.toByteArray();
 }`
 
 [Baidu]（http://www.baidu.com）
