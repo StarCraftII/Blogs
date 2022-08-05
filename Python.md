@@ -46,3 +46,74 @@ help - 参数的帮助信息，当指定为 argparse.SUPPRESS 时表示不显示
 metavar - 在 usage 说明中的参数名称，对于必选参数默认就是参数名称，对于可选参数默认是全大写的参数名称.
 dest - 解析后的参数名称，默认情况下，对于可选参数选取最长的名称，中划线转换为下划线.
 ```
+
+### 2.0 sys模块
+
+#### 2.0.1 sys.argv
+
+给程序在外部传递参数
+
+**脚本的名称总是sys.argv列表的第一个参数**
+
+```
+源码：
+import sys
+
+print sys.argv[0]
+print sys.argv[1]
+print sys.argv[2]
+print sys.argv[3]
+
+执行命令：
+python test.py arg1 arg2 arg3
+
+输出：
+test.py
+arg1
+arg2
+arg3
+```
+
+#### 2.0.2 sys.platform
+
+根据不同平台适配不同调用方法
+
+```
+os_type = sys.platform
+print(os_type)
+if os_type == 'win32':
+    os.system('dir') #调用windows的命令窗口。
+elif os_type == 'mac':
+    os.system('ls') #调用mac的命令窗口。
+elif os_type == 'linux':
+    os.system('shell') #调用linux
+```
+
+#### 2.0.3 sys.exit
+
+需要中途退出程序时调用
+
+```
+sys.exit(0) #正常退出
+```
+
+#### 2.0.4 sys.path
+
+包含输入模块的目录名列表
+
+```
+print(sys.path)
+```
+
+#### 2.0.5 sys.modules
+
+This is a dictionary that maps module names to modules which have already been loaded. This can be manipulated to force reloading of modules and other tricks.
+
+```
+for names in sys.modules.keys():
+	print(names)
+```
+
+#### 2.0.6 sys.stdin,sys.stdout,sys.stderr
+
+**stdin**，**stdout**，以及 **stderr** 变量包含与标准I/O 流对应的流对象。如果需要更好地控制输出，而 print 不能满足你的要求，它们就是你所需要的。 你也可以替换它们，这时候你就可以重定向输出和输入到其它设备( device )，或者以非标准的方式处理它们。
