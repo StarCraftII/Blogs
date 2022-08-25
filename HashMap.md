@@ -262,49 +262,354 @@ final Node<K,V>[] resize() {
 		for (int j = 0; j < oldCap; ++j) {
 			// 临时节点e
 			Node<K,V> e;
-			// 当前tab下标存在元素节点
+			// 当前tab下标存在数据（可能是单个节点、链表、红黑树）
 			if ((e = oldTab[j]) != null) {
 				// 置空tab下标指针
 				oldTab[j] = null;
-				// 如果e没有后继节点，直接把e
+				// 如果e没有后继节点，直接把e放到新tab的对应下标位置
 				if (e.next == null)
 					newTab[e.hash & (newCap - 1)] = e;
+				// 如果e后面是一个树
 				else if (e instanceof TreeNode)
 					((TreeNode<K,V>)e).split(this, newTab, j, oldCap);
-				else { // preserve order
+				// 如果e后面是一个链表
+				else { // preserve order	
+					// 由于是扩容了一倍的大小，因此向左多计算一位hash
+					// 且e后面的元素所在新tab上的位置只能是 [j] 或者 [j + oldCap]
+					// 假如oldCap大小是16 j是在13这个位置，
+                    // hash-> ... 1 1101
+                    // hash-> ... 0 1101
+					// 低位链表头和低位链表尾
 					Node<K,V> loHead = null, loTail = null;
+					// 高位链表头和高位链表尾
 					Node<K,V> hiHead = null, hiTail = null;
+					// 下一个节点
 					Node<K,V> next;
 					do {
 						next = e.next;
+						// 如果高位是0，插入低位链表
 						if ((e.hash & oldCap) == 0) {
+							// 如果低位链表尾是空的，直接把e插入低位链表头
 							if (loTail == null)
 								loHead = e;
 							else
+								// 把低位链表尾的下一个节点指向e
 								loTail.next = e;
+							// 更新e为新的低位链表尾
 							loTail = e;
 						}
+						// 如果高位是1，插入高位链表
 						else {
+							// 如果高位链表尾是空的，直接把e插入高位链表头
 							if (hiTail == null)
 								hiHead = e;
 							else
+								// 把高位链表尾的下一个节点指向e
 								hiTail.next = e;
+							// 更新e为新的高位链表尾
 							hiTail = e;
 						}
 					} while ((e = next) != null);
+					// 如果低位链表不为空
 					if (loTail != null) {
 						loTail.next = null;
+						// 把低位链表插入到新tab的[j]位置处
 						newTab[j] = loHead;
 					}
 					if (hiTail != null) {
 						hiTail.next = null;
+						// 把高位链表插入到新tab的[j + oldCap]位置处
 						newTab[j + oldCap] = hiHead;
 					}
 				}
 			}
 		}
 	}
+	// 返回新的tab表
 	return newTab;
+}
+```
+
+### 2.8 get方法
+
+```
+/**
+  * Returns the value to which the specified key is mapped,
+  * or {@code null} if this map contains no mapping for the key.
+  *
+  * 返回指定key映射的值或者这个map不包含这个key的映射则返回null
+  *
+  * <p>More formally, if this map contains a mapping from a key
+  * {@code k} to a value {@code v} such that {@code (key==null ? k==null :
+  * key.equals(k))}, then this method returns {@code v}; otherwise
+  * it returns {@code null}.  (There can be at most one such mapping.)
+  *
+  * 更正的说，如果此map包含从键{@code k}到值{@code v}的映射,使得
+  * {@code（key == null？k == null：key.equals（k） ）}，则此方法返回
+  * {@code v}; 否则返回{@code null}。 （最多可以有一个这样的映射。）
+  *
+  * <p>A return value of {@code null} does not <i>necessarily</i>
+  * indicate that the map contains no mapping for the key; it's also
+  * possible that the map explicitly maps the key to {@code null}.
+  * The {@link #containsKey containsKey} operation may be used to
+  * distinguish these two cases.
+  *
+  * 返回值 {@code null} 并不必然表示该map不包含该键的映射； 这也是该映
+  * 射可能将键显式映射到 {@code null}。{@link #containsKey containsKey} 
+  * 操作可用于区分这两种情况。
+  *
+  * @see #put(Object, Object)
+  */
+public V get(Object key) {
+	Node<K,V> e;
+	return (e = getNode(hash(key), key)) == null ? null : e.value;
+}
+```
+
+### 2.9 getNode方法
+
+```
+/**
+  * Implements Map.get and related methods
+  *
+  * 实现 Map.get 和相关方法
+  *
+  * @param hash hash for key key的hash值（平衡后的hash值）
+  * @param key the key 要查找的key
+  * @return the node, or null if none 返回节点或null
+  */
+final Node<K,V> getNode(int hash, Object key) {
+	// 当前tab
+	// first：tab某索引处的头结点
+	// e：临时节点
+	// n：tab的长度
+	// k：临时key
+    Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
+	// 如果tab不为空并且tab的长度大于0，hash命中索引处的首元素不为空
+    if ((tab = table) != null && (n = tab.length) > 0 &&
+        (first = tab[(n - 1) & hash]) != null) {
+		// 首元素的hash值与要查找的hash值一样并且它们的key值要么地址相同要么值相同
+        if (first.hash == hash && // always check first node
+            ((k = first.key) == key || (key != null && key.equals(k))))
+			// 返回首元素
+            return first;
+		// 如果首元素有后继节点，把后继节点赋值给e
+        if ((e = first.next) != null) {
+			// 首元素是树节点
+            if (first instanceof TreeNode)
+				// 返回树查找返回的节点
+                return ((TreeNode<K,V>)first).getTreeNode(hash, key);
+			// 首元素是链表节点，不断向后查找
+            do {
+				// e的hash值与要查找的hash值一样并且它们的key值要么地址相同要么值相同，返回e
+				// e未匹配上，如果e有后继节点，把e的后继节赋值给e
+                if (e.hash == hash &&
+                    ((k = e.key) == key || (key != null && key.equals(k))))
+                    return e;
+            } while ((e = e.next) != null);
+        }
+    }
+    return null;
+}
+```
+
+### 2.10 remove方法
+
+删除指定key对应的节点
+
+```
+/**
+  * Removes the mapping for the specified key from this map if present.
+  *
+  * 删除此map中指定key的映射（如果存在）。
+  *
+  * @param  key key whose mapping is to be removed from the map
+  *
+  *	@param  key 要从map中删除其映射的key
+  *
+  * @return the previous value associated with <tt>key</tt>, or
+  *         <tt>null</tt> if there was no mapping for <tt>key</tt>.
+  *         (A <tt>null</tt> return can also indicate that the map
+  *         previously associated <tt>null</tt> with <tt>key</tt>.)
+  *
+  * @return 返回与key关联的前一个值，或者null(没有关于key的映射),
+  *         返回null也可能是这个key先前显示关联了null
+  *
+  */
+public V remove(Object key) {
+    Node<K,V> e;
+	// 未找到要删除的节点返回null，找到要删除的节点返回节点的value值
+    return (e = removeNode(hash(key), key, null, false, true)) == null ?
+        null : e.value;
+}
+
+/**
+  * 当key与value都满足条件才能删除
+  */
+@Override
+public boolean remove(Object key, Object value) {
+    return removeNode(hash(key), key, value, true, true) != null;
+}
+```
+
+### 2.11 removeNode方法
+
+```
+/**
+  * 删除指定节点
+  *
+  * @param hash hash for key 
+  * Implements Map.remove and related methods
+  *
+  * 实现 Map.remove 和相关方法
+  *
+  * @param key the key
+  * @param value the value to match if matchValue, else ignored
+  * @param value 如果设置matchValue就匹配value值，否则忽略
+  * @param matchValue if true only remove if value is equal
+  * @param matchValue 如果为true只删除value值相等的
+  * @param movable if false do not move other nodes while removing
+  * @param movable 如果为false在删除过程中不能移动其他节点
+  * @return the node, or null if none
+  * @return 返回删除节点或null
+  */
+final Node<K,V> removeNode(int hash, Object key, Object value,
+                           boolean matchValue, boolean movable) {
+	// 当前tab
+	// p：当前元素节点
+	// n：tab的长度
+	// index：命中的tab下标索引
+    Node<K,V>[] tab; Node<K,V> p; int n, index;
+	// 如果tab不为空并且tab的长度大于0，hash命中索引处的首元素不为空
+    if ((tab = table) != null && (n = tab.length) > 0 &&
+        (p = tab[index = (n - 1) & hash]) != null) {
+		// node为查找到的结果，e为临时节点
+		// k表示key,v表示value
+        Node<K,V> node = null, e; K k; V v;
+		// 首元素的hash值与要查找的hash值一样并且它们的key值要么地址相同要么值相同
+        if (p.hash == hash &&
+            ((k = p.key) == key || (key != null && key.equals(k))))
+			// 把首元素赋值给node
+            node = p;
+		// 如果首元素有后继节点，把后继节点赋值给e
+        else if ((e = p.next) != null) {
+			// 首元素是树节点
+            if (p instanceof TreeNode)
+				// 把树查找返回的节点赋值给node
+                node = ((TreeNode<K,V>)p).getTreeNode(hash, key);
+            else {
+				// 首元素是链表节点，不断向后查找
+                do {
+					// e的hash值与要查找的hash值一样并且它们的key值要么地址相同要么值相同，把e赋值给node
+					// e未匹配上，如果e有后继节点，把e的后继节赋值给e
+                    if (e.hash == hash &&
+                        ((k = e.key) == key ||
+                         (key != null && key.equals(k)))) {
+                        node = e;
+                        break;
+                    }
+					// 把当前节点e赋值给p
+                    p = e;
+				// 把e的下一个节点赋值给e
+                } while ((e = e.next) != null);
+            }
+        }
+		
+		// 如果node不为空，说明根据key已经匹配到合适的Node，再根据matchValue判断是否需要根据value去校验
+        if (node != null && (!matchValue || (v = node.value) == value ||
+                             (value != null && value.equals(v)))) {
+			// 在树结构里删除node节点
+            if (node instanceof TreeNode)
+                ((TreeNode<K,V>)node).removeTreeNode(this, tab, movable);
+			// 如果node是tab命中索引处的头节点，那么让tab命中索引指向node的后继节点
+            else if (node == p)
+                tab[index] = node.next;
+            else
+				// 如果node不是tab命中索引处的头节点，让p的后继节点指向node的后继节点，把node从链表中逻辑删除
+                p.next = node.next;
+			// 表示散列表结构的修改次数。增删次数
+            ++modCount;
+			// 节点总数减一
+            --size;
+			// Callbacks to allow LinkedHashMap post-actions
+			// 允许LinkedHashMap事后操作的回调
+            afterNodeRemoval(node);
+			// 返回node节点
+            return node;
+        }
+    }
+    return null;
+}
+```
+
+### 2.12 replace方法
+
+```
+@Override
+public boolean replace(K key, V oldValue, V newValue) {
+	// 临时节点e，临时Value v
+    Node<K,V> e; V v;
+	// 根据key找到对应节点赋值给e，如果e节点的value与oldValue地址相同或者值相等
+    if ((e = getNode(hash(key), key)) != null &&
+        ((v = e.value) == oldValue || (v != null && v.equals(oldValue)))) {
+		// 把e的Value设置为newValue
+        e.value = newValue;
+		// Callbacks to allow LinkedHashMap post-actions
+		// 允许LinkedHashMap事后操作的回调
+        afterNodeAccess(e);
+		// 返回替换成功
+        return true;
+    }
+	// 返回替换失败
+    return false;
+}
+
+@Override
+public V replace(K key, V value) {
+	// 临时节点e
+    Node<K,V> e;
+	// 根据key找到对应节点赋值给e，如果e不为空
+    if ((e = getNode(hash(key), key)) != null) {
+		// 先取出e节点旧的value
+        V oldValue = e.value;
+		// 把e节点的Value设置为新的value
+        e.value = value;
+		// Callbacks to allow LinkedHashMap post-actions
+		// 允许LinkedHashMap事后操作的回调
+        afterNodeAccess(e);
+		// 返回旧的value值
+        return oldValue;
+    }
+	// 返回null
+    return null;
+}
+```
+
+### 2.13 clear方法
+
+```
+/**
+  * Removes all of the mappings from this map.
+  *
+  * 删除这个map里所有的映射关系
+  *
+  * The map will be empty after this call returns.
+  * 
+  * 此调用返回后map将为空
+  */
+public void clear() {
+	// 散列表
+    Node<K,V>[] tab;
+	// 表示散列表结构的修改次数。增删次数
+    modCount++;
+	// 如果tab不为空并且size大于0
+    if ((tab = table) != null && size > 0) {
+		// size设置为0
+        size = 0;
+		// 遍历tab数组，置空每一项
+        for (int i = 0; i < tab.length; ++i)
+            tab[i] = null;
+    }
 }
 ```
 
